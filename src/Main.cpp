@@ -1,19 +1,9 @@
-#include <juce_audio_devices/juce_audio_devices.h>
+#include <JuceHeader.h>
 
-using namespace juce;
+#include "app.h"
 
-void playTestSound() {
-  AudioDeviceManager deviceManager;
-  deviceManager.initialise(0, 2, nullptr, true);
-  deviceManager.playTestSound();
-  Thread::sleep(5000);
-}
+int main(int ac, char *av[]) {
+  auto app = MainApp();
 
-//==============================================================================
-int main(int argc, char *argv[]) {
-  ScopedJuceInitialiser_GUI plattform;
-  while (true) {
-    playTestSound();
-  }
-  return 0;
+  return app.findAndRunCommand(ac, av);
 }
