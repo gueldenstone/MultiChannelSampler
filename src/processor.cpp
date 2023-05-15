@@ -9,11 +9,11 @@ MonoFilePlayerProcessor::MonoFilePlayerProcessor(File file) :
   ProcessorBase(1, 1), m_inputFile(file) {
   m_formatManager.registerBasicFormats();
 
-  m_fmtRdrSrc = new AudioFormatReaderSource(m_formatManager.createReaderFor(file), true);
-  m_source.setSource(m_fmtRdrSrc);
+  auto newSource =
+      std::make_unique<AudioFormatReaderSource>(m_formatManager.createReaderFor(file), true);
+  m_source.setSource(newSource.get());
+  m_fmtReaderSource.reset(newSource.release());
 }
-
-MonoFilePlayerProcessor::~MonoFilePlayerProcessor() { delete m_fmtRdrSrc; }
 
 void MonoFilePlayerProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
   m_source.prepareToPlay(static_cast<int>(sampleRate), samplesPerBlock);

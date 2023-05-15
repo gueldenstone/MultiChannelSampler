@@ -40,7 +40,6 @@ class ProcessorBase : public juce::AudioProcessor {
 class MonoFilePlayerProcessor : public ProcessorBase {
  public:
   MonoFilePlayerProcessor(File file);
-  ~MonoFilePlayerProcessor() override;
 
   void prepareToPlay(double sampleRate, int samplesPerBlock) override;
 
@@ -55,6 +54,6 @@ class MonoFilePlayerProcessor : public ProcessorBase {
  private:
   juce::AudioFormatManager m_formatManager;
   juce::AudioTransportSource m_source;
+  std::unique_ptr<AudioFormatReaderSource> m_fmtReaderSource;
   juce::File m_inputFile;
-  juce::AudioFormatReaderSource *m_fmtRdrSrc;
 };
