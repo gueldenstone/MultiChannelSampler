@@ -24,7 +24,9 @@ MainApp::MainApp() :
         try {
           auto file = args.getExistingFileForOption("--file");
           auto channel = args.getValueForOption("--channel").getIntValue();
-          MultiChannelSampler sampler(m_deviceManager);
+          auto device = args.getValueForOption("--device");
+          auto outputs = args.getValueForOption("--outputs").getIntValue();
+          MultiChannelSampler sampler(m_deviceManager, device, outputs);
           try {
             sampler.initialize();
           } catch (std::string str) {
@@ -63,7 +65,7 @@ void MainApp::listDevices() const {
  * @param outputs number of outputs
  */
 MultiChannelSampler::MultiChannelSampler(shared_ptr<AudioDeviceManager> devMngr,
-                                         string const &deviceName, int outputs) :
+                                         String const &deviceName, int outputs) :
   m_deviceManager(devMngr),
   m_mainProcessor(new AudioProcessorGraph()),
   m_player(new AudioProcessorPlayer()),
@@ -104,10 +106,10 @@ void MultiChannelSampler::initializeDeviceManager() {
   setup.outputDeviceName = m_deviceName;
   setup.inputDeviceName = m_deviceName;
   setup.outputChannels = m_outputs;
-  setup.inputChannels = 0;
-  setup.sampleRate = 48000.0;
+  setup.inputChannels = m_outputs;
+  setup.sampleRate = m_sampleRate;
 
-  auto err = m_deviceManager->initialise(0, m_outputs, nullptr, true, "", &setup);
+  auto err = m_deviceManager->initialise(m_outputs, m_outputs, nullptr, true, "", &setup);
   if (err.isNotEmpty()) {
     std::cout << err << std::endl;
   }
@@ -138,5 +140,6 @@ void MultiChannelSampler::playSound(juce::File const &file, int channel) {
     while (proc->isPlaying()) {
       Thread::sleep(20);
     }
-  };
+  }
+  m_mainProcessor->removeNode(node);
 }

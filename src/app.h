@@ -33,10 +33,10 @@ class MainApp : public ConsoleApplication {
 
 class MultiChannelSampler {
  public:
-  MultiChannelSampler(shared_ptr<AudioDeviceManager> devMngr, string const &deviceName,
+  MultiChannelSampler(shared_ptr<AudioDeviceManager> devMngr, String const &deviceName,
                       int outputs);
   MultiChannelSampler(shared_ptr<AudioDeviceManager> devMngr) :
-    MultiChannelSampler(devMngr, "SQ - Audio", 4) {}
+    MultiChannelSampler(devMngr, "MacBook Pro Speakers", 2) {}
 
   ~MultiChannelSampler();
 
@@ -53,6 +53,8 @@ class MultiChannelSampler {
   unique_ptr<AudioProcessorGraph> m_mainProcessor;
   unique_ptr<AudioProcessorPlayer> m_player;
   int m_outputs;
-  string m_deviceName;
+  int m_sampleRate;
+  String m_deviceName;
+
   Node::Ptr audioOutputNode;
 };

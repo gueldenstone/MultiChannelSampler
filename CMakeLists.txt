@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.22)
 
 project(MultiChannelSampler VERSION 0.0.1)
 
+if(UNIX AND NOT APPLE)
+  find_package(ALSA REQUIRED)
+endif()
+
 # include JUCE framework
 add_subdirectory(lib/juce)
 juce_add_console_app(MultiChannelSampler
@@ -33,7 +37,15 @@ target_link_libraries(MultiChannelSampler
   juce::juce_audio_formats
   juce::juce_audio_basics
   juce::juce_audio_utils
+  juce::juce_dsp
   PUBLIC
   juce::juce_recommended_config_flags
   juce::juce_recommended_warning_flags
 )
+
+if(UNIX AND NOT APPLE)
+  target_link_libraries(MultiChannelSampler
+    PRIVATE
+    ${ALSA_LIBRARIES}
+  )
+endif()

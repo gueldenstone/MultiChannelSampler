@@ -40,6 +40,7 @@ class ProcessorBase : public juce::AudioProcessor {
 class MonoFilePlayerProcessor : public ProcessorBase {
  public:
   MonoFilePlayerProcessor(File file);
+  ~MonoFilePlayerProcessor() override;
 
   void prepareToPlay(double sampleRate, int samplesPerBlock) override;
 

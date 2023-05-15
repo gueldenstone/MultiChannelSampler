@@ -13,6 +13,8 @@ MonoFilePlayerProcessor::MonoFilePlayerProcessor(File file) :
   m_source.setSource(m_fmtRdrSrc);
 }
 
+MonoFilePlayerProcessor::~MonoFilePlayerProcessor() { delete m_fmtRdrSrc; }
+
 void MonoFilePlayerProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
   m_source.prepareToPlay(static_cast<int>(sampleRate), samplesPerBlock);
 }
