@@ -1,6 +1,7 @@
 #pragma once
 #include <JuceHeader.h>
 
+#include "error.h"
 #include "processor.h"
 
 using AudioGraphIOProcessor = juce::AudioProcessorGraph::AudioGraphIOProcessor;
@@ -10,51 +11,47 @@ using Connection = juce::AudioProcessorGraph::Connection;
 
 using namespace std;
 
-class MainApp : public ConsoleApplication {
+class MainApp : public juce::ConsoleApplication {
  public:
   MainApp();
   ~MainApp();
 
- private:
-  void setupDeviceManager(string const &deviceName);
-
   /* -------------------------------- commands -------------------------------
    */
  private:
-  void listDevices() const;
-  void playSound(File const &file, int channel);
+  [[nodiscard]] Error listDevices() const;
+  [[nodiscard]] Error playSound(juce::File const &file, int channel);
 
   /* --------------------------------- members --------------------------------
    */
  private:
-  unique_ptr<MessageManager> m_messageManager;
-  shared_ptr<AudioDeviceManager> m_deviceManager;
+  shared_ptr<juce::AudioDeviceManager> m_deviceManager;
 };
 
 class MultiChannelSampler {
  public:
-  MultiChannelSampler(shared_ptr<AudioDeviceManager> devMngr, String const &deviceName,
-                      int outputs);
-  MultiChannelSampler(shared_ptr<AudioDeviceManager> devMngr) :
+  MultiChannelSampler(shared_ptr<juce::AudioDeviceManager> devMngr,
+                      juce::String const &deviceName, int outputs);
+  MultiChannelSampler(shared_ptr<juce::AudioDeviceManager> devMngr) :
     MultiChannelSampler(devMngr, "MacBook Pro Speakers", 2) {}
 
   ~MultiChannelSampler();
 
  public:
-  void initialize();
-  void playSound(File const &file, int channel);
+  [[nodiscard]] Error initialize();
+  [[nodiscard]] Error playSound(juce::File const &file, int channel);
 
  private:
-  void initializeDeviceManager();
-  void initializeEngine();
+  [[nodiscard]] Error initializeDeviceManager();
+  [[nodiscard]] Error initializeEngine();
 
  private:
-  shared_ptr<AudioDeviceManager> m_deviceManager;
-  unique_ptr<AudioProcessorGraph> m_mainProcessor;
-  unique_ptr<AudioProcessorPlayer> m_player;
+  shared_ptr<juce::AudioDeviceManager> m_deviceManager;
+  unique_ptr<juce::AudioProcessorGraph> m_mainProcessor;  // needs to be pointer?
+  unique_ptr<juce::AudioProcessorPlayer> m_player;
   int m_outputs;
   int m_sampleRate;
-  String m_deviceName;
+  juce::String m_deviceName;
 
   Node::Ptr audioOutputNode;
 };

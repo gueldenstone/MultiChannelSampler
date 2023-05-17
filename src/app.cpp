@@ -1,7 +1,8 @@
 #include "app.h"
 
-MainApp::MainApp() :
-  m_messageManager(MessageManager::getInstance()), m_deviceManager(new AudioDeviceManager()) {
+MainApp::MainApp() : m_deviceManager(new juce::AudioDeviceManager()) {
+  using namespace juce;
+  juce::MessageManager::getInstance();
   // default device manager config
   m_deviceManager->initialiseWithDefaultDevices(2, 2);
 
@@ -13,38 +14,40 @@ MainApp::MainApp() :
       "list-devices",
       "Lists available devices",
       "This command lists all available devices on your computer",
-      [this]([[maybe_unused]] ArgumentList const &args) { listDevices(); },
+      [this]([[maybe_unused]] juce::ArgumentList const &args) {
+        if (auto err = listDevices(); err) {
+          fail(err.what());
+        }
+      },
   });
   addDefaultCommand({
       "play",
       "play",
       "Plays an audio file on a specified channel",
       "",
-      [this](ArgumentList const &args) {
-        try {
-          auto file = args.getExistingFileForOption("--file");
-          auto channel = args.getValueForOption("--channel").getIntValue();
-          auto device = args.getValueForOption("--device");
-          auto outputs = args.getValueForOption("--outputs").getIntValue();
-          MultiChannelSampler sampler(m_deviceManager, device, outputs);
-          try {
-            sampler.initialize();
-          } catch (std::string str) {
-            fail(str);
-          }
-          sampler.playSound(file, channel);
-        } catch (exception ex) {
-          fail(ex.what());
-        }
+      [this](juce::ArgumentList const &args) {
+        auto file = args.getExistingFileForOption("--file");
+        auto channel = args.getValueForOption("--channel").getIntValue();
+        auto device = args.getValueForOption("--device");
+        auto outputs = args.getValueForOption("--outputs").getIntValue();
+
+        MultiChannelSampler sampler(m_deviceManager, device, outputs);
+        if (auto err = sampler.initialize(); err) fail(static_cast<juce::String>(err));
+
+        if (auto err = sampler.playSound(file, channel); err)
+          fail(static_cast<juce::String>(err));
       },
   });
 }
 
-MainApp::~MainApp() { m_deviceManager->removeAllChangeListeners(); }
+MainApp::~MainApp() {
+  juce::MessageManager::deleteInstance();
+  DeletedAtShutdown::deleteAll();
+}
 
 /* -------------------------------- commands -------------------------------- */
-void MainApp::listDevices() const {
-  OwnedArray<AudioIODeviceType> devTypes;
+Error MainApp::listDevices() const {
+  juce::OwnedArray<juce::AudioIODeviceType> devTypes;
   m_deviceManager->createAudioDeviceTypes(devTypes);
   for (const auto &type : devTypes) {
     cout << "[[ " << type->getTypeName() << " ]]" << endl;
@@ -53,6 +56,7 @@ void MainApp::listDevices() const {
       cout << "  - " << dev << endl;
     }
   }
+  return Error();
 }
 
 /* --------------------------- MutliChannelSampler -------------------------- */
@@ -64,12 +68,13 @@ void MainApp::listDevices() const {
  * @param deviceName name of the device we want to use
  * @param outputs number of outputs
  */
-MultiChannelSampler::MultiChannelSampler(shared_ptr<AudioDeviceManager> devMngr,
-                                         String const &deviceName, int outputs) :
+MultiChannelSampler::MultiChannelSampler(shared_ptr<juce::AudioDeviceManager> devMngr,
+                                         juce::String const &deviceName, int outputs) :
   m_deviceManager(devMngr),
-  m_mainProcessor(new AudioProcessorGraph()),
-  m_player(new AudioProcessorPlayer()),
+  m_mainProcessor(new juce::AudioProcessorGraph()),
+  m_player(new juce::AudioProcessorPlayer()),
   m_outputs(outputs),
+  m_sampleRate(48000),
   m_deviceName(deviceName) {}
 
 MultiChannelSampler::~MultiChannelSampler() {
@@ -81,47 +86,50 @@ MultiChannelSampler::~MultiChannelSampler() {
  * @brief Initializes the audio engine which is a AudioGraph.
  *
  */
-void MultiChannelSampler::initializeEngine() {
+Error MultiChannelSampler::initializeEngine() {
   auto device = m_deviceManager->getCurrentAudioDevice();
   auto sampleRate = device->getCurrentSampleRate();
   auto samplesPerBlock = device->getCurrentBufferSizeSamples();
 
-  m_mainProcessor->enableAllBuses();
+  if (!m_mainProcessor->enableAllBuses()) return Error("could not enable buses");
   m_mainProcessor->setPlayConfigDetails(0, m_outputs, sampleRate, samplesPerBlock);
   m_mainProcessor->prepareToPlay(sampleRate, samplesPerBlock);
 
   m_mainProcessor->clear();
   audioOutputNode = m_mainProcessor->addNode(
       make_unique<AudioGraphIOProcessor>(AudioGraphIOProcessor::audioOutputNode));
+  if (!audioOutputNode) return Error("could not add output node");
   m_player->setProcessor(m_mainProcessor.get());
   m_deviceManager->addAudioCallback(m_player.get());
+  return Error();
 }
 
 /**
  * @brief Initializes the device manager with number of outputs and sample rate.
  *
  */
-void MultiChannelSampler::initializeDeviceManager() {
+Error MultiChannelSampler::initializeDeviceManager() {
   auto setup = m_deviceManager->getAudioDeviceSetup();
   setup.outputDeviceName = m_deviceName;
-  setup.inputDeviceName = m_deviceName;
   setup.outputChannels = m_outputs;
   setup.inputChannels = m_outputs;
   setup.sampleRate = m_sampleRate;
 
   auto err = m_deviceManager->initialise(m_outputs, m_outputs, nullptr, true, "", &setup);
   if (err.isNotEmpty()) {
-    std::cout << err << std::endl;
+    return Error("initializing deviceManager: " + err);
   }
+  return Error();
 }
 
 /**
  * @brief Initializes the device manager and the audio engine
  *
  */
-void MultiChannelSampler::initialize() {
-  initializeDeviceManager();
-  initializeEngine();
+Error MultiChannelSampler::initialize() {
+  if (auto err = initializeDeviceManager()) return err;
+  if (auto err = initializeEngine()) return err;
+  return Error();
 }
 
 /**
@@ -130,16 +138,20 @@ void MultiChannelSampler::initialize() {
  * @param file
  * @param channel
  */
-void MultiChannelSampler::playSound(juce::File const &file, int channel) {
+Error MultiChannelSampler::playSound(juce::File const &file, int channel) {
   cout << "Playing " << file.getFullPathName() << " on channel " << channel << endl;
+  Error err;
   auto node = m_mainProcessor->addNode(make_unique<MonoFilePlayerProcessor>(file));
   auto conn = Connection{{node->nodeID, 0}, {audioOutputNode->nodeID, channel - 1}};
   m_mainProcessor->addConnection(conn);
   if (auto proc = dynamic_cast<MonoFilePlayerProcessor *>(node->getProcessor())) {
     proc->start();
     while (proc->isPlaying()) {
-      Thread::sleep(20);
+      juce::Thread::sleep(20);
     }
+  } else {
+    err = Error("not a MonoFilePlayerProcessor");
   }
-  m_mainProcessor->removeNode(node);
+  m_mainProcessor->clear();
+  return err;
 }

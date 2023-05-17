@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+message Packet {
+  oneof content {
+    Config config = 1;
+  }
+}
+
+message Config {
+  string deviceName = 1;
+  int32 numInputs = 2;
+  int32 numOutputs = 3;
+}
